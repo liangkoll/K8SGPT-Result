@@ -1,24 +1,27 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "net/http"
+	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
 	// "encoding/json"
-    "path/filepath"
-    "k8s.io/apimachinery/pkg/api/errors"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/apimachinery/pkg/runtime/schema"
-    "k8s.io/client-go/dynamic"
-    "k8s.io/client-go/rest"
-    "k8s.io/client-go/tools/clientcmd"
-    // "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-    "k8s.io/client-go/util/homedir"
+	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
+	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/client-go/util/homedir"
 )
 
 // 定义集群配置变量类型
@@ -140,8 +143,9 @@ func startHTTPServer() {
 func main() {
 	//根据环境变量获取需要查询的资源所属的命名空间
 	namespace := os.Getenv("RESULTSNAMESPACE")
-	if namespace == " " {
+	if namespace == "" {
 		fmt.Println("Namespace environment variable not found")
+		panic("results资源命名空间为空")
 	} else {
 		fmt.Println("Namespace value:", namespace)
 	}
