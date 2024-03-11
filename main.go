@@ -1,47 +1,54 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "net/http"
+	"context"
+	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
 	// "encoding/json"
-    "path/filepath"
-    "k8s.io/apimachinery/pkg/api/errors"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/apimachinery/pkg/runtime/schema"
-    "k8s.io/client-go/dynamic"
-    "k8s.io/client-go/rest"
-    "k8s.io/client-go/tools/clientcmd"
-    // "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-    "k8s.io/client-go/util/homedir"
+	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
+	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/client-go/util/homedir"
 )
-//定义集群配置变量类型
+
+// 定义集群配置变量类型
 var cfg *rest.Config
+
 // 获取自定义资源实例
-var	gvr = schema.GroupVersionResource{
-		Group:    "core.k8sgpt.ai",
-		Version:  "v1alpha1",
-		Resource: "results",
-	}
+var gvr = schema.GroupVersionResource{
+	Group:    "core.k8sgpt.ai",
+	Version:  "v1alpha1",
+	Resource: "results",
+}
 
 var gauge = prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: "k8sgpt_diagnostic_results",
-				Help: "Diagnostic results from Kubernetes",
-			},
-			[]string{"resultname", "kind", "podname", "errorinfo", "time"},
-	)
-var server *http.Server
+	prometheus.GaugeOpts{
+		Name: "k8sgpt_diagnostic_results",
+		Help: "Diagnostic results from Kubernetes",
+	},
+	[]string{"resultname", "kind", "podname", "errorinfo", "time"},
+)
+var server = &http.Server{
+	Addr: ":8080",
+}
 
-func registerMetricsEndpoint(cfg *rest.Config, namespace string){
-	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){
+func registerMetricsEndpoint(cfg *rest.Config, namespace string) {
+	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		gauge.Reset()
-		
+
 		// 创建动态客户端以操作自定义资源
 		dynClient, err := dynamic.NewForConfig(cfg)
 		if err != nil {
@@ -86,7 +93,7 @@ func registerMetricsEndpoint(cfg *rest.Config, namespace string){
 				return
 			}
 
-			podname,ok := resultData["name"].(string)
+			podname, ok := resultData["name"].(string)
 			if !ok {
 				fmt.Println("'name' field not found in 'spec' or is not an array")
 				return
@@ -109,19 +116,31 @@ func registerMetricsEndpoint(cfg *rest.Config, namespace string){
 		promhttp.Handler().ServeHTTP(w, r)
 	})
 }
-func startHTTPServer(){
+func startHTTPServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, this is a sample endpoint.")
 	})
-	http.ListenAndServe(":8080", nil)
+	// http.ListenAndServe(":8080", nil)
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			fmt.Println(err)
 		}
 	}()
-}	
+	// Wait for interrupt signal to gracefully shutdown the server
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
 
-func main(){
+	// Shutdown the server
+	fmt.Println("Shutting down the server...")
+	if err := server.Shutdown(context.Background()); err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Server gracefully stopped")
+
+}
+
+func main() {
 	//根据环境变量获取需要查询的资源所属的命名空间
 	namespace := os.Getenv("RESULTSNAMESPACE")
 	if namespace == " " {
@@ -129,7 +148,7 @@ func main(){
 	} else {
 		fmt.Println("Namespace value:", namespace)
 	}
-    //检查是否存在主目录
+	//检查是否存在主目录
 	home := homedir.HomeDir()
 	if home == "" {
 		fmt.Println("Error getting home directory")
@@ -151,14 +170,14 @@ func main(){
 	registerMetricsEndpoint(cfg, namespace)
 	startHTTPServer()
 	// Wait for interrupt signal to gracefully shutdown the server
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
+	// c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt)
+	// <-c
 
-	// Shutdown the server
-	fmt.Println("Shutting down the server...")
-	if err := server.Shutdown(context.Background()); err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("Server gracefully stopped")
+	// // Shutdown the server
+	// fmt.Println("Shutting down the server...")
+	// if err := server.Shutdown(context.Background()); err != nil {
+	// 	fmt.Println(err)
+	// }
+	// fmt.Println("Server gracefully stopped")
 }
