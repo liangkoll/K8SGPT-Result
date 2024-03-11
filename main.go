@@ -1,27 +1,24 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net/http"
+    "context"
+    "fmt"
+    "net/http"
 	"os"
 	"os/signal"
 	"time"
-
 	// "encoding/json"
-	"path/filepath"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
-	// "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+    "path/filepath"
+    "k8s.io/apimachinery/pkg/api/errors"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "k8s.io/apimachinery/pkg/runtime/schema"
+    "k8s.io/client-go/dynamic"
+    "k8s.io/client-go/rest"
+    "k8s.io/client-go/tools/clientcmd"
+    // "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+    "k8s.io/client-go/util/homedir"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/client-go/util/homedir"
 )
 
 // 定义集群配置变量类型
@@ -169,15 +166,4 @@ func main() {
 	prometheus.MustRegister(gauge)
 	registerMetricsEndpoint(cfg, namespace)
 	startHTTPServer()
-	// Wait for interrupt signal to gracefully shutdown the server
-	// c := make(chan os.Signal, 1)
-	// signal.Notify(c, os.Interrupt)
-	// <-c
-
-	// // Shutdown the server
-	// fmt.Println("Shutting down the server...")
-	// if err := server.Shutdown(context.Background()); err != nil {
-	// 	fmt.Println(err)
-	// }
-	// fmt.Println("Server gracefully stopped")
 }
