@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app.kubernetes.io/component: pod-error
+    app.kubernetes.io/name: pod-error
+    app.kubernetes.io/part-of: kube-prometheus
+    app.kubernetes.io/version: 9.5.3
+    prometheus: k8s
+    role: alert-rules
+  name: pod-error-rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: podErrorAlert
+    rules:
+    - alert: podErrorStatusAlert
+      expr: sum(k8sgpt_number_of_results_by_type{kind=~"Pod"}) without ( instance) > 0
+      for: 1m
+      labels:
+        severity: Error
+      annotations:
+        summary: "cluster status is abnormal"
+        description: "{{ $labels.name }} status is Error"
+    - alert: podErrorResults
+      expr: count(k8sgpt_diagnostic_results{kind="Pod"}) by(errorinfo,podname,namespace) > 0
+      for: 1m
+      labels:
+        serverity: Error
+      annotations:
+        summary: "cluster status is abnormal"
+        description: "{{ $labels.podname }} is Error, Error info: {{ $labels.errorinfo }}"

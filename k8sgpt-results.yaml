@@ -1,0 +1,312 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8sgpt-results
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8sgpt-results
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k8sgpt-results
+    spec:
+      containers:
+      - name: k8sgpt-results
+        image: hub.dre.mvd/k8sgpt/k8sgpt-results:v9.0
+        imagePullPolicy: IfNotPresent
+        command:
+        - /app/k8sgpt_result
+        env:
+          - name: RESULTSNAMESPACE
+            value: monitoring
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        args:
+        - --metrics-bind-address=:8080
+      securityContext:
+        fsGroup: 2000
+        runAsUser: 1000
+      serviceAccountName: k8sgpt-results
+        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8sgpt-results-service
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt-results
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    app.kubernetes.io/name: k8sgpt-results
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 8080
+      targetPort: metrics
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: k8sgpt-results-servicemonitor
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: k8sgpt-results
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt-results
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    path: /metrics
+    port: metrics
+    scheme: http
+    tlsConfig:
+      insecureSkipVerify: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8sgpt-results
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: k8sgpt-results-leader-election-rolebinding
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: 'k8sgpt-results-leader-election-role'
+subjects:
+- kind: ServiceAccount
+  name: 'k8sgpt-results'
+  namespace: 'monitoring'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8sgpt-results
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: k8sgpt-results
+    app.kubernetes.io/name: k8sgpt
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: k8sgpt-results-leader-election-role
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - k8sgpts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - k8sgpts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - k8sgpts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - results
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8sgpt-results-rolebinding
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: 'k8sgpt-results-role'
+subjects:
+- kind: ServiceAccount
+  name: 'k8sgpt-results'
+  namespace: 'monitoring'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8sgpt-results-metrics-rolebinding
+  labels:
+    app.kubernetes.io/component: results-metrics
+    app.kubernetes.io/created-by: k8sgpt-results
+    app.kubernetes.io/part-of: k8sgpt-results
+    app.kubernetes.io/instance: results-metrics
+    app.kubernetes.io/name: k8sgpt-results
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: 'k8sgpt-results-metrics-role'
+subjects:
+- kind: ServiceAccount
+  name: 'k8sgpt-results'
+  namespace: 'monitoring'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8sgpt-results-metrics-role
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: results-metrics
+    app.kubernetes.io/created-by: k8sgpt-results
+    app.kubernetes.io/part-of: k8sgpt-results
+    app.kubernetes.io/instance: results-metrics
+    app.kubernetes.io/name: k8sgpt-results
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8sgpt-results-role
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: k8sgpt
+    app.kubernetes.io/instance: results
+    app.kubernetes.io/name: k8sgpt
+    app.kubernetes.io/version: "0.0.26"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - k8sgpts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - k8sgpts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - k8sgpts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - core.k8sgpt.ai
+  resources:
+  - results
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
